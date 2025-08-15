@@ -5,8 +5,6 @@ Useful, allocation-conscious custom types for .NET: an inclusive `DateRange` val
 <p align="center">
   <img src="src/BigO.Types/Resources/bigo.png" alt="BigO logo" width="140"/>
 </p>
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-![Target: net9.0](https://img.shields.io/badge/target-net9.0-black)
 
 ---
 
@@ -24,7 +22,7 @@ Useful, allocation-conscious custom types for .NET: an inclusive `DateRange` val
 
 An **inclusive** range of dates based on `DateOnly`.
 
-**Core members (from tests):**
+**Core members :**
 
 - `StartDate : DateOnly`
 - `EndDate : DateOnly?`
@@ -33,13 +31,13 @@ An **inclusive** range of dates based on `DateOnly`.
 - Deconstruction: `(start, end)`
 - Extensions: `Contains(date)`, `Duration()`, `EnumerateDays()`, `GetWeeksInRange(...)`, `Overlaps(...)`, `Intersection(...)`
 - Formatting/Parsing: `ToString()` uses `YYYY-MM-DD|YYYY-MM-DD` and `∞` for open‑ended; `Parse(...)` supports round‑trip string format.
-- JSON: `DateRangeConverter` for `System.Text.Json`. ([GitHub](https://github.com/omarbesiso/BigO.Types/commit/587ee24fe1702a50f8a780361b9fad04226e497b))
+- JSON: `DateRangeConverter` for `System.Text.Json`. 
 
-**Semantics (from tests):**
+**Semantics :**
 
 - `default(DateRange)` behaves as **MinDate → ∞**.
 - `EndDate` may equal `StartDate` (single‑day range).
-- Constructing with `end < start` throws. ([GitHub](https://github.com/omarbesiso/BigO.Types/commit/587ee24fe1702a50f8a780361b9fad04226e497b))
+- Constructing with `end < start` throws. 
 
 **Usage**
 
@@ -114,7 +112,7 @@ var mail = new System.Net.Mail.MailAddress(email.ToString());
 // ... and you can go the other way if an adapter API is provided in the library.
 ```
 
-> Normalization is designed to provide consistent equality/ordering; specifics are in the implementation/tests. Avoid relying on provider‑specific rules (e.g., Gmail dot‑rules) unless explicitly documented. ([GitHub](https://github.com/omarbesiso/BigO.Types/commit/587ee24fe1702a50f8a780361b9fad04226e497b))
+> Normalization is designed to provide consistent equality/ordering; specifics are in the implementation/tests. Avoid relying on provider‑specific rules (e.g., Gmail dot‑rules) unless explicitly documented. 
 
 ------
 
@@ -122,7 +120,7 @@ var mail = new System.Net.Mail.MailAddress(email.ToString());
 
 - `DisposableObject` — base class to simplify safe resource cleanup.
 - `ObservableObject` — base for property change notifications.
-   Both are introduced in the initial commit. Check XML docs in code for the exact patterns. ([GitHub](https://github.com/omarbesiso/BigO.Types/commit/587ee24fe1702a50f8a780361b9fad04226e497b))
+   Both are introduced in the initial commit. Check XML docs in code for the exact patterns. 
 
 ------
 
@@ -139,7 +137,7 @@ dotnet test src/BigO.Types.sln -c Release --collect:"XPlat Code Coverage"
 dotnet pack src/BigO.Types/BigO.Types.csproj -c Release -o ./artifacts
 ```
 
-> Packaging metadata is already included in the project (per initial commit notes). When you’re ready, publish to NuGet or your private feed. ([GitHub](https://github.com/omarbesiso/BigO.Types/commit/587ee24fe1702a50f8a780361b9fad04226e497b))
+> Packaging metadata is already included in the project (per initial commit notes). When you’re ready, publish to NuGet or your private feed.
 
 ------
 
@@ -154,4 +152,4 @@ dotnet pack src/BigO.Types/BigO.Types.csproj -c Release -o ./artifacts
 
 ## License
 
-This project is under the **MIT License**. See LICENSE. ([GitHub](https://github.com/omarbesiso/BigO.Types))
+This project is under the **MIT License**. See LICENSE. 
