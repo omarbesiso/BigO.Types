@@ -2,6 +2,9 @@
 
 namespace BigO.Types.Tests;
 
+/// <summary>
+///     Tests verifying <see cref="DateRange" /> formatting and parsing.
+/// </summary>
 public sealed class DateRangeFormatParseTests
 {
     private const char Infinity = '\u221E';

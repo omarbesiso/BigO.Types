@@ -1,5 +1,8 @@
 ﻿namespace BigO.Types.Tests;
 
+/// <summary>
+///     Tests for the <see cref="DateRangeExtensions.Contains(DateRange, DateOnly)" /> extension method.
+/// </summary>
 public sealed class DateRangeExtensionsContainsTests
 {
     private static DateOnly D(int y, int m, int d) => new(y, m, d);

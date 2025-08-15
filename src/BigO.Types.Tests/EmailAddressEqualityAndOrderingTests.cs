@@ -1,5 +1,8 @@
 ﻿namespace BigO.Types.Tests;
 
+/// <summary>
+///     Tests verifying equality and comparison semantics for <see cref="EmailAddress" />.
+/// </summary>
 public sealed class EmailAddressEqualityAndOrderingTests
 {
     [Theory]

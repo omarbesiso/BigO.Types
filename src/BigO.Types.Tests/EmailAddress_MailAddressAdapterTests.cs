@@ -2,6 +2,10 @@
 
 namespace BigO.Types.Tests;
 
+/// <summary>
+///     Tests for converting <see cref="EmailAddress" /> instances into
+///     <see cref="System.Net.Mail.MailAddress" /> values.
+/// </summary>
 public sealed class EmailAddressMailAddressAdapterTests
 {
     [Fact]

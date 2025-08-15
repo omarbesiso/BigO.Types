@@ -1,5 +1,8 @@
 ﻿namespace BigO.Types.Tests;
 
+/// <summary>
+///     Unit tests for core <see cref="DateRange" /> behavior.
+/// </summary>
 public sealed class DateRangeCoreTests
 {
     private const char Infinity = '\u221E';

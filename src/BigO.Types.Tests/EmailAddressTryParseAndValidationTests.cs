@@ -1,5 +1,9 @@
 ﻿namespace BigO.Types.Tests;
 
+/// <summary>
+///     Tests for <see cref="EmailAddress.TryParse(string?, out EmailAddress)" />
+///     and related validation helpers.
+/// </summary>
 public sealed class EmailAddressTryParseAndValidationTests
 {
     [Theory]

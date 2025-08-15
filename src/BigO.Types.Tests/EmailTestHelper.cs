@@ -3,6 +3,9 @@ using System.Globalization;
 
 namespace BigO.Types.Tests;
 
+/// <summary>
+///     Utility helpers used by <see cref="EmailAddress" /> unit tests.
+/// </summary>
 internal static class EmailTestHelper
 {
     /// <summary>

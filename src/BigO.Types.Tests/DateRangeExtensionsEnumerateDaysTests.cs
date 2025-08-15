@@ -1,5 +1,8 @@
 ﻿namespace BigO.Types.Tests;
 
+/// <summary>
+///     Tests for <see cref="DateRangeExtensions.EnumerateDays(DateRange, int?)" />.
+/// </summary>
 public sealed class DateRangeExtensionsEnumerateDaysTests
 {
     private static DateOnly D(int y, int m, int d) => new(y, m, d);

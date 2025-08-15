@@ -1,5 +1,8 @@
 ﻿namespace BigO.Types.Tests;
 
+/// <summary>
+///     Tests covering construction of <see cref="EmailAddress" /> instances from strings.
+/// </summary>
 public sealed class EmailAddressConstructionTests
 {
     [Theory]
