@@ -1,155 +1,66 @@
-﻿# BigO.Types
-
-Useful, allocation-conscious custom types for .NET: an inclusive `DateRange` value type, a validated/normalized `EmailAddress`, plus small utilities and adapters.
+# BigO.Types
 
 <p align="center">
-  <img src="src/BigO.Types/Resources/bigo.png" alt="BigO logo" width="140"/>
+  <img src="Resources/bigo.png" alt="BigO logo" width="140"/>
 </p>
 
----
+Allocation-conscious types for .NET.
 
-## Why
+## Features
 
-- **Make domain code explicit.** Replace ad‑hoc tuples/strings with purpose‑built types.
-- **Safer defaults.** Inclusive date math, proper email validation/normalization.
-- **Ergonomics.** Friendly `DateOnly` APIs, extension methods for common calendar ops, and JSON support.
+- **DateRange** – inclusive `DateOnly` range with helpers for contains, duration, enumeration and JSON serialization.
+- **EmailAddress** – validated and normalized address representation.
+- **Utility bases** – `DisposableObject` and `ObservableObject` for common patterns.
 
-------
+## Install
 
-## Types at a glance
+BigO.Types relies on [`BigO.Validation`](https://www.nuget.org/packages/BigO.Validation).
 
-### `DateRange` (value type)
-
-An **inclusive** range of dates based on `DateOnly`.
-
-**Core members :**
-
-- `StartDate : DateOnly`
-- `EndDate : DateOnly?`
-- `EffectiveEnd : DateOnly` (max when open‑ended)
-- `IsOpenEnded : bool`
-- Deconstruction: `(start, end)`
-- Extensions: `Contains(date)`, `Duration()`, `EnumerateDays()`, `GetWeeksInRange(...)`, `Overlaps(...)`, `Intersection(...)`
-- Formatting/Parsing: `ToString()` uses `YYYY-MM-DD|YYYY-MM-DD` and `∞` for open‑ended; `Parse(...)` supports round‑trip string format.
-- JSON: `DateRangeConverter` for `System.Text.Json`. 
-
-**Semantics :**
-
-- `default(DateRange)` behaves as **MinDate → ∞**.
-- `EndDate` may equal `StartDate` (single‑day range).
-- Constructing with `end < start` throws. 
-
-**Usage**
-
-```csharp
-using BigO.Types;
-
-// Open-ended range from 2025-08-01 to infinity.
-var open = new DateRange(new DateOnly(2025, 8, 1));
-
-// Closed range for August 2025.
-var august = new DateRange(new DateOnly(2025, 8, 1), new DateOnly(2025, 8, 31));
-
-// Inclusive checks
-bool hasMidMonth = august.Contains(new DateOnly(2025, 8, 15));   // true
-int days = august.Duration();                                     // inclusive day count
-
-// Enumerate each day (inclusive)
-foreach (var d in august.EnumerateDays())
-{
-    // ...
-}
-
-// Overlap/intersection helpers (via extensions)
-bool overlaps = august.Overlaps(open);
-var intersection = august.Intersection(open); // returns the overlapping portion
-
-// Round-trip formatting
-var s = august.ToString();                     // "2025-08-01|2025-08-31"
-var parsed = DateRange.Parse(s);               // == august
-
-// Open-ended formatting uses ∞
-var s2 = open.ToString();  // e.g. "2025-08-01|∞"
-```
-
-**System.Text.Json**
-
-```csharp
-using System.Text.Json;
-using BigO.Types;
-
-var options = new JsonSerializerOptions();
-options.Converters.Add(new DateRangeConverter());
-
-var json = JsonSerializer.Serialize(august, options);
-var back = JsonSerializer.Deserialize<DateRange>(json, options);
-```
-
-------
-
-### `EmailAddress`
-
-A lightweight type for **validated** and **normalized** email addresses.
-
-**From tests:**
-
-- Construction & normalization; `TryParse` support; equality & ordering; default instance behavior.
-- Interop with `System.Net.Mail.MailAddress` (adapter tests). ([GitHub](https://github.com/omarbesiso/BigO.Types/commit/587ee24fe1702a50f8a780361b9fad04226e497b))
-
-**Typical usage**
-
-```csharp
-using BigO.Types;
-
-if (EmailAddress.TryParse("  Jane.Doe@Example.COM  ", out var email))
-{
-    // Normalized representation (e.g., trimmed, domain normalization).
-    Console.WriteLine(email.ToString());
-}
-
-// Using the .NET BCL type when needed:
-var mail = new System.Net.Mail.MailAddress(email.ToString());
-// ... and you can go the other way if an adapter API is provided in the library.
-```
-
-> Normalization is designed to provide consistent equality/ordering; specifics are in the implementation/tests. Avoid relying on provider‑specific rules (e.g., Gmail dot‑rules) unless explicitly documented. 
-
-------
-
-### Utilities
-
-- `DisposableObject` — base class to simplify safe resource cleanup.
-- `ObservableObject` — base for property change notifications.
-   Both are introduced in the initial commit. Check XML docs in code for the exact patterns. 
-
-------
-
-## Build, test, pack
+### .NET CLI
 
 ```bash
-# build
+dotnet add package BigO.Validation
+```
+
+### Visual Studio
+
+1. Right-click the project and choose **Manage NuGet Packages...**
+2. Search for `BigO.Validation` and install the latest version.
+
+Or use the Package Manager Console:
+
+```powershell
+Install-Package BigO.Validation
+```
+
+## Usage
+
+```csharp
+using BigO.Types;
+
+// Date ranges
+var range = new DateRange(new DateOnly(2025, 1, 1), new DateOnly(2025, 1, 31));
+bool containsMidMonth = range.Contains(new DateOnly(2025, 1, 15));
+
+// Email addresses
+if (EmailAddress.TryParse("user@example.com", out var email))
+{
+    Console.WriteLine(email); // normalized
+}
+```
+
+## Build, test and pack
+
+Run these commands from the repository root:
+
+```bash
+dotnet restore
 dotnet build src/BigO.Types.sln -c Release
-
-# run tests + coverage (requires coverlet collector present in tests project)
-dotnet test src/BigO.Types.sln -c Release --collect:"XPlat Code Coverage"
-
-# produce a nupkg (local)
+dotnet test src/BigO.Types.sln -c Release
 dotnet pack src/BigO.Types/BigO.Types.csproj -c Release -o ./artifacts
 ```
 
-> Packaging metadata is already included in the project (per initial commit notes). When you’re ready, publish to NuGet or your private feed.
-
-------
-
-## Design notes
-
-- **Inclusive ranges** reduce off‑by‑one errors for scheduling and reporting.
-- **`DateOnly`** surface: no time‑zone surprises.
-- **Extensions over inheritance** keeps the value type small and JIT/AOT‑friendly.
-- JSON converter avoids custom binders at app edges.
-
-------
-
 ## License
 
-This project is under the **MIT License**. See LICENSE. 
+Licensed under the [MIT License](../LICENSE).
+
