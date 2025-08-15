@@ -1,5 +1,8 @@
 ﻿namespace BigO.Types.Tests;
 
+/// <summary>
+///     Tests for splitting <see cref="DateRange" /> values into week-sized chunks.
+/// </summary>
 public sealed class DateRangeExtensionsGetWeeksInRangeTests
 {
     private static DateOnly D(int y, int m, int d) => new(y, m, d);

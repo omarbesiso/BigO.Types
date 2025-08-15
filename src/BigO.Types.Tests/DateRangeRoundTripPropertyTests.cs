@@ -2,6 +2,10 @@
 
 namespace BigO.Types.Tests;
 
+/// <summary>
+///     Property-based tests verifying that <see cref="DateRange" /> values round-trip
+///     through string and JSON representations.
+/// </summary>
 public sealed class DateRangeRoundTripPropertyTests
 {
     private static readonly Random Rng = new(42);

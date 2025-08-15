@@ -2,6 +2,9 @@
 
 namespace BigO.Types.Tests;
 
+/// <summary>
+///     Tests confirming the normalization rules applied to <see cref="EmailAddress" />.
+/// </summary>
 public sealed class EmailAddressNormalizationTests
 {
     [Fact]

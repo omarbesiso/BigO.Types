@@ -2,6 +2,9 @@
 
 namespace BigO.Types.Tests;
 
+/// <summary>
+///     Tests describing the behavior of the default <see cref="EmailAddress" /> value.
+/// </summary>
 public sealed class EmailAddressDefaultInstanceTests
 {
     [Fact]

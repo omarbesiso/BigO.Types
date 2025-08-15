@@ -1,5 +1,9 @@
 ﻿namespace BigO.Types.Tests;
 
+/// <summary>
+///     Tests for <see cref="DateRangeExtensions.Overlaps(DateRange, DateRange)" />
+///     and <see cref="DateRangeExtensions.Intersection(DateRange, DateRange)" />.
+/// </summary>
 public sealed class DateRangeExtensionsOverlapsIntersectionTests
 {
     private static DateOnly D(int y, int m, int d) => new(y, m, d);

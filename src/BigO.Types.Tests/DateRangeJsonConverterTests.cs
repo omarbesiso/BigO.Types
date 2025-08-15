@@ -3,6 +3,9 @@ using System.Text.Json;
 
 namespace BigO.Types.Tests;
 
+/// <summary>
+///     Tests for the JSON converter that serializes <see cref="DateRange" /> values.
+/// </summary>
 public sealed class DateRangeJsonConverterTests
 {
     private const string InfinityLiteral = "\u221E";

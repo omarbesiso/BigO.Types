@@ -1,5 +1,8 @@
 ﻿namespace BigO.Types.Tests;
 
+/// <summary>
+///     Tests for duration-related extension methods on <see cref="DateRange" />.
+/// </summary>
 public sealed class DateRangeExtensionsDurationTests
 {
     private static DateOnly D(int y, int m, int d) => new(y, m, d);
