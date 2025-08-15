@@ -1,0 +1,1 @@
+﻿# BigO.Types
