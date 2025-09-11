@@ -1,288 +1,254 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
 using System.Net.Mail;
-using System.Text;
 
 namespace BigO.Types;
 
 /// <summary>
-///     Represents an email address value object with validation and normalization.
+///     Represents an immutable email address value object (DDD).
 /// </summary>
 /// <remarks>
-///     <para>
-///         <b>Construction:</b> Use <see cref="From(string)" />, <see cref="Parse(string)" />, or
-///         <see cref="TryParse(string, out EmailAddress)" />.
-///     </para>
-///     <para>
-///         <b>Normalization:</b> input is trimmed; the domain part is converted to lower case and IDN-normalized to ASCII
-///         (Punycode).
-///         The local part is preserved as entered.
-///     </para>
-///     <para>
-///         <b>Equality and ordering:</b> comparisons are case-insensitive (OrdinalIgnoreCase) over the entire address
-///         to match common mailbox behavior. If you require strict RFC-local-part sensitivity, switch to Ordinal and
-///         document it.
-///     </para>
-///     <para>
-///         <b>Default value:</b> <c>default(EmailAddress)</c> is not valid and throws
-///         <see cref="InvalidOperationException" /> when used.
-///     </para>
-///     <para><b>Length:</b> <see cref="MaxLength" /> (254) is enforced <i>after</i> normalization.</para>
-///     <para>
-///         <b>Thread safety:</b> This type is immutable and thread-safe.
-///     </para>
+///     - Construction is funneled through <see cref="From(string?, string?)" /> (explicit address + optional display name)
+///     or the <see cref="IParsable{TSelf}" /> APIs (single string input, e.g. <c>John Doe &lt;john@example.com&gt;</c>).
+///     - Validation leverages <see cref="MailAddress.TryCreate(string?, string?, out MailAddress?)" /> to reject invalid
+///     forms
+///     without using exceptions for control flow. Although <see cref="MailAddress" /> accepts many forms, other servers
+///     may
+///     still reject some addresses; it's a parser, not a full validator. See
+///     <see href="https://learn.microsoft.com/dotnet/api/system.net.mail.mailaddress" />.
+///     - Normalization trims whitespace, lower-cases the entire <see cref="Address" /> (by specification here),
+///     and Title-Cases the <see cref="DisplayName" /> (culture-aware).
+///     - Equality is by value (record struct). Sorting is ordinal by <see cref="Address" /> then
+///     <see cref="DisplayName" />.
+///     - <c>default(EmailAddress)</c> bypasses validation and should be treated as an "empty" sentinel.
 /// </remarks>
-[DebuggerDisplay("{_value,nq}")]
-// ReSharper disable once InconsistentNaming
-public readonly record struct EmailAddress : IComparable<EmailAddress>, IParsable<EmailAddress>
+[DebuggerDisplay("{DebuggerDisplay,nq}")]
+public readonly record struct EmailAddress :
+    IComparable<EmailAddress>,
+    IParsable<EmailAddress>,
+    IFormattable
 {
-    /// <summary>
-    ///     Commonly enforced maximum email length per RFC 5321 (total length of local@domain).
-    /// </summary>
-    public const int MaxLength = 254;
-
-    private readonly string? _value;
-
-    private EmailAddress(string value)
+    // Canonical constructor used by all creation paths.
+    private EmailAddress(string address, string? displayName)
     {
-        _value = value;
+        Address = address;
+        DisplayName = displayName;
     }
 
-    /// <summary>The normalized string value. Throws if the instance is the default value.</summary>
-    public string Value => _value ?? throw new InvalidOperationException(
-        "Uninitialized EmailAddress (default). Use EmailAddress.From/Parse/TryParse.");
+    /// <summary>
+    ///     Gets the normalized email address (trimmed and lower-cased).
+    ///     Guaranteed non-empty for instances created via <see cref="From(string?, string?)" />,
+    ///     <see cref="Parse(string, IFormatProvider?)" />, or
+    ///     <see cref="TryParse(string?, IFormatProvider?, out EmailAddress)" />.
+    /// </summary>
+    public string Address { get; } = string.Empty;
 
     /// <summary>
-    ///     Gets the local part of the email address (before the @).
+    ///     Gets the optional display name in Title Case, or <c>null</c> when not supplied.
     /// </summary>
-    public string Local => Value[..Value.LastIndexOf('@')];
+    public string? DisplayName { get; }
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    private string DebuggerDisplay => DisplayName is null ? Address : $"{DisplayName} <{Address}>";
 
     /// <summary>
-    ///     Gets the domain part of the email address (after the @).
+    ///     Compares this instance with another <see cref="EmailAddress" /> to provide a stable sort order.
     /// </summary>
-    public string Domain => Value[(Value.LastIndexOf('@') + 1)..];
-
-    /// <inheritdoc />
+    /// <param name="other">The other <see cref="EmailAddress" /> to compare to.</param>
+    /// <returns>
+    ///     Negative if this instance precedes <paramref name="other" />; zero if equal; positive if it follows.
+    ///     Ordering is by <see cref="Address" /> (ordinal), then <see cref="DisplayName" /> (ordinal; <c>null</c> precedes
+    ///     non-null).
+    /// </returns>
     public int CompareTo(EmailAddress other)
     {
-        if (_value == null)
+        var byAddress = StringComparer.Ordinal.Compare(Address, other.Address);
+        if (byAddress != 0)
         {
-            return other._value == null ? 0 : -1;
+            return byAddress;
         }
 
-        if (other._value == null)
-        {
-            return 1;
-        }
-
-        return StringComparer.OrdinalIgnoreCase.Compare(_value, other._value);
+        return StringComparer.Ordinal.Compare(DisplayName, other.DisplayName);
     }
 
     /// <summary>
-    ///     Check if this email address is equal to another <see cref="EmailAddress" /> instance.
+    ///     Formats this value using the specified format and provider.
     /// </summary>
-    /// <param name="other">The other email address to compare with.</param>
-    /// <returns>True if both email addresses are equal (case-insensitive), otherwise false.</returns>
-    public bool Equals(EmailAddress other) =>
-        _value != null && other._value != null &&
-        StringComparer.OrdinalIgnoreCase.Equals(_value, other._value);
-
-    /// <inheritdoc />
-    public static EmailAddress Parse(string s, IFormatProvider? provider) => Parse(s);
-
-    /// <inheritdoc />
-    public static bool TryParse(string? s, IFormatProvider? provider, out EmailAddress value)
+    /// <param name="format">
+    ///     Supported format specifiers:
+    ///     <list type="bullet">
+    ///         <item>
+    ///             <description>
+    ///                 <c>"G"</c>/<c>"g"</c> (General): <c>DisplayName &lt;Address&gt;</c> if display name exists;
+    ///                 otherwise <c>Address</c>.
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description><c>"A"</c>/<c>"a"</c> (Address): <c>Address</c> only.</description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 <c>"F"</c>/<c>"f"</c> (Full): same as <c>"G"</c>, but explicitly intended for mail header
+    ///                 display.
+    ///             </description>
+    ///         </item>
+    ///     </list>
+    /// </param>
+    /// <param name="formatProvider">Culture used for any culture-sensitive behavior in display name formatting.</param>
+    /// <returns>A formatted string representation.</returns>
+    /// <exception cref="FormatException">Thrown when an unsupported format specifier is provided.</exception>
+    public string ToString(string? format, IFormatProvider? formatProvider)
     {
-        value = default;
+        var fmt = string.IsNullOrEmpty(format) ? "G" : format!;
+        switch (fmt)
+        {
+            case "A":
+            case "a":
+                return Address;
+
+            case "F":
+            case "f":
+            case "G":
+            case "g":
+                // Use MailAddress for correct quoting/escaping semantics.
+                return DisplayName is null
+                    ? Address
+                    : new MailAddress(Address, DisplayName).ToString();
+
+            default:
+                throw new FormatException(
+                    $"The {nameof(EmailAddress)} format string '{format}' is not supported. Use 'G', 'A', or 'F'.");
+        }
+    }
+
+    /// <summary>
+    ///     Parses a string into an <see cref="EmailAddress" />.
+    ///     Accepts either a raw address (e.g., <c>user@example.com</c>) or a combined form
+    ///     (e.g., <c>John Doe &lt;user@example.com&gt;</c>).
+    /// </summary>
+    /// <param name="s">Input string to parse.</param>
+    /// <param name="provider">
+    ///     Optional <see cref="IFormatProvider" /> whose culture is used for Title Casing the display name.
+    ///     If <c>null</c>, the invariant culture is used.
+    /// </param>
+    /// <returns>A validated and normalized <see cref="EmailAddress" />.</returns>
+    /// <exception cref="FormatException">Thrown when <paramref name="s" /> is null/whitespace or not a valid address.</exception>
+    public static EmailAddress Parse(string s, IFormatProvider? provider)
+    {
+        if (string.IsNullOrWhiteSpace(s))
+        {
+            throw new FormatException("Input cannot be null or whitespace.");
+        }
+
+        if (!MailAddress.TryCreate(s.Trim(), out var parsed) || parsed is null)
+        {
+            throw new FormatException("The input string is not a recognized email address.");
+        }
+
+        return CreateFromParsed(parsed, provider);
+    }
+
+    /// <summary>
+    ///     Attempts to parse a string into an <see cref="EmailAddress" />.
+    ///     Accepts either a raw address or a combined form (e.g., <c>John Doe &lt;user@example.com&gt;</c>).
+    /// </summary>
+    /// <param name="s">Input string to parse.</param>
+    /// <param name="provider">
+    ///     Optional <see cref="IFormatProvider" /> whose culture is used for Title Casing the display name.
+    ///     If <c>null</c>, the invariant culture is used.
+    /// </param>
+    /// <param name="result">When this method returns, contains the parsed value if successful; otherwise <c>default</c>.</param>
+    /// <returns><c>true</c> if parsing succeeded; otherwise, <c>false</c>.</returns>
+    public static bool TryParse(string? s, IFormatProvider? provider, out EmailAddress result)
+    {
+        result = default;
         if (string.IsNullOrWhiteSpace(s))
         {
             return false;
         }
 
-        var normalized = Normalize(s);
-
-        if (normalized.Any(char.IsWhiteSpace))
-        {
-            // Reject if any whitespace remains after normalization
-            return false;
-        }
-
-        // length after normalization
-        if (normalized.Length > MaxLength)
+        if (!MailAddress.TryCreate(s.Trim(), out var parsed) || parsed is null)
         {
             return false;
         }
 
-        // enforce local/domain length limits
-        var at = normalized.LastIndexOf('@');
-        if (at < 1 || at == normalized.Length - 1)
-        {
-            return false;
-        }
-
-        var localLen = at;
-        var domain = normalized.AsSpan(at + 1);
-
-        if (localLen > 64)
-        {
-            return false;
-        }
-
-        if (!IsValidDomainLength(domain))
-        {
-            return false;
-        }
-
-        // Leverage MailAddress parser to reject obvious invalid forms.
-        try
-        {
-            _ = new MailAddress(normalized);
-        }
-        catch
-        {
-            return false;
-        }
-
-        value = new EmailAddress(normalized);
+        result = CreateFromParsed(parsed, provider);
         return true;
     }
 
     /// <summary>
-    ///     Create an <see cref="EmailAddress" /> from a string, validating and normalizing it.
+    ///     Creates a new <see cref="EmailAddress" /> after validating and normalizing the input.
     /// </summary>
-    /// <param name="email">The email address string to validate and normalize.</param>
-    /// <returns>A validated and normalized <see cref="EmailAddress" /> instance.</returns>
-    /// <exception cref="ArgumentException">Thrown when the value is null, whitespace, or not a valid email.</exception>
-    public static EmailAddress From(string? email)
+    /// <param name="email">The email address to parse. Must be non-empty and in a valid format.</param>
+    /// <param name="displayName">
+    ///     Optional display name. If provided, it is validated alongside the address, trimmed, and Title-Cased.
+    ///     Empty/whitespace values become <c>null</c>.
+    /// </param>
+    /// <returns>A normalized <see cref="EmailAddress" />.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="email" /> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="email" /> is empty or whitespace.</exception>
+    /// <exception cref="FormatException">Thrown when inputs cannot be parsed as a valid address/display name.</exception>
+    public static EmailAddress From(string? email, string? displayName = null)
     {
-        if (!TryParse(email, null, out var result))
+        ArgumentException.ThrowIfNullOrWhiteSpace(email, nameof(email));
+
+        var trimmedEmail = email!.Trim();
+        var trimmedDisplay = string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim();
+
+        if (trimmedDisplay is null)
         {
-            throw new ArgumentException("Invalid email address.", nameof(email));
+            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+            if (!MailAddress.TryCreate(trimmedEmail, out var parsed) || parsed is null)
+            {
+                throw new FormatException("The email address is not in a recognized format.");
+            }
+
+            return CreateFromParsed(parsed, CultureInfo.InvariantCulture);
         }
-
-        return result;
-    }
-
-    /// <summary>Parse an email address or throw if invalid.</summary>
-    /// <exception cref="FormatException">Thrown when the value is not a valid email address.</exception>
-    public static EmailAddress Parse(string s) =>
-        TryParse(s, null, out var result)
-            ? result
-            : throw new FormatException("Invalid email address.");
-
-    /// <summary>Try to parse an email address.</summary>
-    public static bool TryParse(string? s, out EmailAddress value) =>
-        TryParse(s, null, out value);
-
-    /// <summary>Return the normalized email string; empty for default instances.</summary>
-    public override string ToString() => _value ?? string.Empty;
-
-    /// <summary>Check validity using the same rules as <see cref="TryParse(string, out EmailAddress)" />.</summary>
-    public static bool IsEmailAddressValid(string? email) => TryParse(email, out _);
-
-    /// <summary>Create a <see cref="MailAddress" /> for this value.</summary>
-    /// <exception cref="InvalidOperationException">If the instance is default.</exception>
-    public MailAddress ToMailAddress() => new(Value);
-
-    /// <summary>Create a <see cref="MailAddress" /> for this value with a display name.</summary>
-    /// <exception cref="InvalidOperationException">If the instance is default.</exception>
-    public MailAddress ToMailAddress(string? displayName) => new(Value, displayName);
-
-    /// <summary>Create a <see cref="MailAddress" /> with display name and encoding.</summary>
-    /// <exception cref="InvalidOperationException">If the instance is default.</exception>
-    public MailAddress ToMailAddress(string? displayName, Encoding? displayNameEncoding) =>
-        new(Value, displayName, displayNameEncoding);
-
-    /// <inheritdoc />
-    public override int GetHashCode() =>
-        _value != null ? StringComparer.OrdinalIgnoreCase.GetHashCode(_value) : 0;
-
-    /// <summary>
-    ///     Trim whitespace, split on the rightmost '@' outside quotes, lowercase and IDN-normalize the domain.
-    /// </summary>
-    /// <param name="input">The email address string to normalize.</param>
-    /// <returns>The normalized email address string.</returns>
-    private static string Normalize(string input)
-    {
-        var trimmed = input.Trim();
-
-        var at = FindAtSeparator(trimmed); // important: last '@' handles quoted locals with '@'
-        if (at <= 0 || at >= trimmed.Length - 1)
+        else
         {
-            return trimmed; // let the parser reject it
+            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+            if (!MailAddress.TryCreate(trimmedEmail, trimmedDisplay, out var parsed) || parsed is null)
+            {
+                throw new FormatException("The email address or display name is not in a recognized format.");
+            }
+
+            return CreateFromParsed(parsed, CultureInfo.InvariantCulture);
         }
-
-        var local = trimmed[..at];
-        var domain = trimmed[(at + 1)..];
-
-        // Convert IDN to ASCII and lower-case the domain.
-        string asciiDomain;
-        try
-        {
-            asciiDomain = new IdnMapping().GetAscii(domain).ToLowerInvariant();
-        }
-        catch
-        {
-            asciiDomain = domain.ToLowerInvariant();
-        } // bad IDN -> let MailAddress fail
-
-        return $"{local}@{asciiDomain}";
     }
 
     /// <summary>
-    ///     Find the position of the '@' separator in an email address, respecting quoted local parts.
+    ///     Returns a string that represents the current value using the "general" format.
+    ///     Equivalent to <c>ToString("G", <see cref="CultureInfo.InvariantCulture" />)</c>.
     /// </summary>
-    /// <param name="email">The email address to search.</param>
-    /// <returns>The index of the '@' character, or -1 if not found.</returns>
-    private static int FindAtSeparator(string email)
-    {
-        var inQuotes = false;
-        for (var i = 0; i < email.Length; i++)
-        {
-            switch (email[i])
-            {
-                case '"' when i == 0 || email[i - 1] != '\\':
-                    inQuotes = !inQuotes;
-                    break;
-                case '@' when !inQuotes:
-                    return i;
-            }
-        }
+    public override string ToString() => ToString(null, CultureInfo.InvariantCulture);
 
-        return -1;
+    // ---------- helpers (private) ----------
+
+    private static EmailAddress CreateFromParsed(MailAddress parsed, IFormatProvider? provider)
+    {
+        var normalizedAddress = NormalizeAddress(parsed.Address);
+        var normalizedDisplay = NormalizeDisplayName(parsed.DisplayName, provider);
+        return new EmailAddress(normalizedAddress, normalizedDisplay);
     }
 
-    /// <summary>
-    ///     Validate the domain length according to RFC 1035 and RFC 5321.
-    /// </summary>
-    /// <param name="domain">The domain part of the email address.</param>
-    /// <returns>True if the domain length is valid, false otherwise.</returns>
-    private static bool IsValidDomainLength(ReadOnlySpan<char> domain)
+    private static string NormalizeAddress(string address) =>
+        // Per requirement, canonicalize the *entire* address to lower case.
+        // Note: RFC 5321 says the local-part is *technically* case-sensitive;
+        // this is intentionally ignored to enforce deterministic equality here.
+        address.Trim().ToLowerInvariant();
+
+    private static string? NormalizeDisplayName(string? displayName, IFormatProvider? provider)
     {
-        // max 253 chars for the textual domain (no trailing dot), and each label 1..63
-        if (domain.Length > 253)
+        if (string.IsNullOrWhiteSpace(displayName))
         {
-            return false;
+            return null;
         }
 
-        var labelLen = 0;
-        foreach (var ch in domain)
-        {
-            if (ch == '.')
-            {
-                if (labelLen is 0 or > 63)
-                {
-                    return false;
-                }
+        var culture = provider as CultureInfo ?? CultureInfo.InvariantCulture;
 
-                labelLen = 0;
-            }
-            else
-            {
-                labelLen++;
-            }
-        }
-
-        return labelLen is > 0 and <= 63;
+        // Lower first to achieve consistent TitleCasing across inputs like "JOHN DOE".
+        var lowered = displayName.Trim().ToLower(culture);
+        return culture.TextInfo.ToTitleCase(lowered);
     }
 }
