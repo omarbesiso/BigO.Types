@@ -26,6 +26,7 @@ namespace BigO.Types;
 public readonly record struct EmailAddress :
     IComparable<EmailAddress>,
     IParsable<EmailAddress>,
+    IEquatable<EmailAddress>,
     IFormattable
 {
     // Canonical constructor used by all creation paths.
@@ -251,4 +252,19 @@ public readonly record struct EmailAddress :
         var lowered = displayName.Trim().ToLower(culture);
         return culture.TextInfo.ToTitleCase(lowered);
     }
+
+    /// <summary>
+    ///    Indicates whether this instance is equal to another <see cref="EmailAddress" />.
+    /// </summary>
+    /// <param name="other">The other <see cref="EmailAddress" /> to compare to.</param>
+    /// <returns><c>true</c> if the addresses are equal; otherwise, <c>false</c>.</returns>
+    public bool Equals(EmailAddress other) =>
+        StringComparer.OrdinalIgnoreCase.Equals(Address, other.Address);
+
+    /// <summary>
+    ///   Returns a hash code for this instance, based on the normalized <see cref="Address" />.
+    /// </summary>
+    /// <returns>A hash code for the current object.</returns>
+    public override int GetHashCode() =>
+        StringComparer.OrdinalIgnoreCase.GetHashCode(Address);
 }
